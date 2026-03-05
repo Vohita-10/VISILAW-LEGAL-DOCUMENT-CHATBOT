@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# environment files
+.env
+*.env
+
+# large datasets
+data/
+data_legal/indexes/
+
+# temporary notebooks
+temp.ipynb
