@@ -1,68 +1,45 @@
-# src/llm/prompt_builder.py
-
 from enum import Enum
 
 
 class AnswerMode(Enum):
-    QA = "qa"
+    QA      = "qa"
     SUMMARY = "summary"
-    LIST = "list"
+    LIST    = "list"
     EXPLAIN = "explain"
 
 
-def _instruction_for_answer_mode(answer_mode: AnswerMode):
-
-    instructions = {
-        AnswerMode.QA: (
-            "Provide a clear and factual answer to the user's question."
-        ),
-
-        AnswerMode.SUMMARY: (
-            "Provide a concise summary of the relevant documentation."
-        ),
-
-        AnswerMode.LIST: (
-            "List the relevant items clearly."
-        ),
-
-        AnswerMode.EXPLAIN: (
-            "Explain the topic in detail using the documentation."
-        )
-    }
-
-    return instructions.get(
-        answer_mode,
-        "Provide a helpful answer based on the documentation."
-    )
+def _instruction_for_mode(mode: AnswerMode) -> str:
+    return {
+        AnswerMode.QA:      "Provide a clear, factual answer to the user's question.",
+        AnswerMode.SUMMARY: "Provide a concise summary of the relevant documentation.",
+        AnswerMode.LIST:    "List the relevant items clearly and completely.",
+        AnswerMode.EXPLAIN: "Explain the topic in detail using the documentation.",
+    }.get(mode, "Provide a helpful answer based on the documentation.")
 
 
 def build_grounded_prompt(
     user_query: str,
     retrieved_chunks: list,
     chat_history: list,
-    answer_mode: AnswerMode = AnswerMode.QA
-):
+    answer_mode: AnswerMode = AnswerMode.QA,
+) -> str:
     """
-    Build a grounded prompt using retrieved legal chunks.
+    Build a grounded RAG prompt.
+    Citations use chunk_id (e.g. legal_chunk_12) — consistent
+    with citation_validator expectations.
     """
-
-    # Build context from retrieved chunks
     context = "\n\n".join(
-        f"[{c.get('row_id')}] {c.get('text')}"
-        for c in retrieved_chunks
-        if c.get("text")
+        f"[{c.get('chunk_id', c.get('row_id', i))}] {c.get('text', c.get('chunk_text', ''))}"
+        for i, c in enumerate(retrieved_chunks)
+        if c.get("text") or c.get("chunk_text")
     )
 
-    # Build chat history
     history = "\n".join(
         f"{m['role'].upper()}: {m['content']}"
-        for m in chat_history[-6:]
-    ) if chat_history else ""
+        for m in (chat_history or [])[-6:]
+    )
 
-    mode_instruction = _instruction_for_answer_mode(answer_mode)
-
-    prompt = f"""
-You are a legal assistant answering questions using documentation.
+    return f"""You are a legal assistant answering questions using contract documentation.
 
 Conversation history:
 {history}
@@ -71,44 +48,29 @@ Documentation:
 {context}
 
 Instructions:
-{mode_instruction}
+{_instruction_for_mode(answer_mode)}
 
 Rules:
-- Use ONLY the documentation above
-- Cite the source chunk using [row_id]
-- If the answer is not present, say:
-  "The document does not contain this information."
+- Use ONLY the documentation above.
+- Cite the source chunk using [chunk_id] after each claim.
+- If the answer is not present say: "The document does not contain this information."
 
 User Question:
 {user_query}
 
-Answer:
-"""
-
-    return prompt.strip()
+Answer:""".strip()
 
 
-def build_chat_prompt(
-    user_query: str,
-    chat_history: list
-):
-    """
-    Prompt for casual conversation.
-    """
-
+def build_chat_prompt(user_query: str, chat_history: list) -> str:
     history = "\n".join(
         f"{m['role'].upper()}: {m['content']}"
-        for m in chat_history[-6:]
-    ) if chat_history else ""
-
-    return f"""
-You are a helpful assistant.
+        for m in (chat_history or [])[-6:]
+    )
+    return f"""You are a helpful legal assistant.
 
 Conversation:
 {history}
 
 User:
 {user_query}
-
-Assistant:
 """.strip()
