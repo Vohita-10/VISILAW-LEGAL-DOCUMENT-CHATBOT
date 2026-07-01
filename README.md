@@ -60,5 +60,4 @@ streamlit run app.py
 Add your Gemini API key to a .env file:
 GEMINI_API_KEY=your_key_here
 
-## Built by
-Vohita Nagarajan — B.Tech CSE (AIML), 2026
+
